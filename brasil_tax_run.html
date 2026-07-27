@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brasil Tax Run</title>
+<style>
+*{box-sizing:border-box} body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(#d9f3ff,#f7fbff);font-family:Arial,sans-serif;color:#173b57}
+.wrap{width:min(94vw,460px);text-align:center} h1{margin:0 0 8px}.sub{margin:0 0 12px}
+canvas{width:100%;height:auto;border-radius:18px;border:4px solid #173b57;box-shadow:0 14px 35px rgba(0,0,0,.18);touch-action:none}
+.row{display:flex;gap:10px;justify-content:center;margin-top:12px}
+button{border:0;border-radius:999px;padding:12px 18px;font-weight:bold;background:#173b57;color:white;font-size:15px;cursor:pointer}
+.secondary{background:white;color:#173b57;border:2px solid #173b57}.hint{font-size:13px;margin-top:10px;opacity:.75}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🇧🇷 Brasil Tax Run</h1>
+<p class="sub">Desvie dos impostos e preserve seu dinheiro!</p>
+<canvas id="game" width="420" height="700"></canvas>
+<div class="row"><button id="startBtn">Começar</button><button id="soundBtn" class="secondary">Som: ligado</button></div>
+<div class="hint">Clique, toque ou pressione espaço para subir.</div>
+</div>
+<script>
+const c=document.getElementById('game'),x=c.getContext('2d');
+let run=false,over=false,score=0,best=+localStorage.getItem('taxrun_best')||0,sound=true,frame=0,speed=2.6,pipes=[];
+const p={x:85,y:320,w:42,h:42,vy:0}, taxes=['ICMS','ISS','PIS','COFINS','IR','IPI','IOF'];
+function reset(){run=false;over=false;score=0;frame=0;speed=2.6;pipes=[];p.y=320;p.vy=0}
+function beep(f=440,d=.06){if(!sound)return;try{let a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.frequency.value=f;o.connect(g);g.connect(a.destination);g.gain.value=.06;o.start();o.stop(a.currentTime+d)}catch(e){}}
+function flap(){if(over){reset();run=true}else if(!run)run=true;p.vy=-7.2;beep(620,.05)}
+c.onpointerdown=flap;document.getElementById('startBtn').onclick=flap;
+window.onkeydown=e=>{if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();flap()}};
+document.getElementById('soundBtn').onclick=()=>{sound=!sound;document.getElementById('soundBtn').textContent='Som: '+(sound?'ligado':'desligado')};
+function spawn(){let gap=170-Math.min(score*1.2,45),top=90+Math.random()*330;pipes.push({x:c.width+30,top,gap,w:74,tax:taxes[Math.floor(Math.random()*taxes.length)],passed:false})}
+function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
+function collide(q){return hit(p,{x:q.x,y:0,w:q.w,h:q.top})||hit(p,{x:q.x,y:q.top+q.gap,w:q.w,h:c.height-q.top-q.gap})}
+function end(){over=true;run=false;beep(150,.25)}
+function update(){if(!run||over)return;frame++;p.vy+=.42;p.y+=p.vy;if(frame%105===0)spawn();speed=2.6+Math.min(score*.045,2.3);
+for(const q of pipes){q.x-=speed;if(!q.passed&&q.x+q.w<p.x){q.passed=true;score++;beep(760,.05);if(score>best){best=score;localStorage.setItem('taxrun_best',best)}}if(collide(q))end()}
+pipes=pipes.filter(q=>q.x+q.w>-20);if(p.y<0||p.y+p.h>c.height)end()}
+function bg(){let g=x.createLinearGradient(0,0,0,c.height);g.addColorStop(0,'#8fd3ff');g.addColorStop(1,'#e9f9ff');x.fillStyle=g;x.fillRect(0,0,c.width,c.height);
+x.fillStyle='rgba(255,255,255,.75)';for(let i=0;i<5;i++){let xx=(i*110-frame*.25)%560-80,yy=70+(i*92)%260;x.beginPath();x.arc(xx,yy,25,0,7);x.arc(xx+28,yy+5,20,0,7);x.arc(xx-28,yy+8,18,0,7);x.fill()}
+x.fillStyle='#98d97c';x.fillRect(0,635,c.width,65)}
+function pipe(q){let g=x.createLinearGradient(q.x,0,q.x+q.w,0);g.addColorStop(0,'#ffcc4d');g.addColorStop(.5,'#ff8b2d');g.addColorStop(1,'#d85816');x.fillStyle=g;x.fillRect(q.x,0,q.w,q.top);x.fillRect(q.x,q.top+q.gap,q.w,c.height-q.top-q.gap);x.fillStyle='#a94113';x.fillRect(q.x-6,q.top-28,q.w+12,28);x.fillRect(q.x-6,q.top+q.gap,q.w+12,28);
+x.save();x.translate(q.x+q.w/2,q.top-55);x.rotate(-Math.PI/2);x.fillStyle='#57210f';x.font='bold 19px Arial';x.textAlign='center';x.fillText(q.tax,0,6);x.restore();
+x.save();x.translate(q.x+q.w/2,q.top+q.gap+74);x.rotate(Math.PI/2);x.fillStyle='#57210f';x.font='bold 19px Arial';x.textAlign='center';x.fillText(q.tax,0,6);x.restore()}
+function player(){x.save();x.translate(p.x+21,p.y+21);x.rotate(Math.max(-.35,Math.min(.55,p.vy*.04)));x.fillStyle='#ffe16b';x.strokeStyle='#173b57';x.lineWidth=3;x.beginPath();x.roundRect(-21,-21,42,42,10);x.fill();x.stroke();x.fillStyle='#173b57';x.font='bold 24px Arial';x.textAlign='center';x.fillText('R$',0,8);x.restore()}
+function hud(){x.fillStyle='rgba(255,255,255,.9)';x.beginPath();x.roundRect(14,14,180,58,16);x.fill();x.fillStyle='#173b57';x.font='bold 20px Arial';x.fillText('Pontos: '+score,28,39);x.font='14px Arial';x.fillText('Recorde: '+best,28,60);
+x.fillStyle='rgba(23,59,87,.9)';x.beginPath();x.roundRect(240,18,165,46,14);x.fill();x.fillStyle='white';x.font='bold 15px Arial';x.textAlign='center';x.fillText('Salvo: R$ '+(score*100),322,47);x.textAlign='left'}
+function overlay(){if(!run&&!over){x.fillStyle='rgba(255,255,255,.92)';x.beginPath();x.roundRect(38,235,344,205,24);x.fill();x.fillStyle='#173b57';x.textAlign='center';x.font='bold 27px Arial';x.fillText('Pronto para sobreviver?',210,286);x.font='18px Arial';x.fillText('Passe pelos impostos',210,326);x.fillText('sem perder seu dinheiro.',210,354);x.font='bold 16px Arial';x.fillText('Toque para começar',210,407);x.textAlign='left'}
+if(over){x.fillStyle='rgba(12,31,45,.86)';x.fillRect(0,0,c.width,c.height);x.fillStyle='white';x.textAlign='center';x.font='bold 34px Arial';x.fillText('💸 Imposto pago!',210,265);x.font='22px Arial';x.fillText('Pontuação: '+score,210,315);x.font='18px Arial';x.fillText('Toque para tentar novamente',210,370);x.font='15px Arial';x.fillText('Quanto mais avança, mais imposto aparece 😅',210,410);x.textAlign='left'}}
+function draw(){bg();pipes.forEach(pipe);player();hud();overlay()}
+function loop(){update();draw();requestAnimationFrame(loop)} reset();loop();
+</script>
+</body></html>
